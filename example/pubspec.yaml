@@ -4,14 +4,13 @@ description: "Demonstrates how to use the vap plugin."
 publish_to: 'none'
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.6.0
 
 dependencies:
   flutter:
     sdk: flutter
 
-  vap:
-
+  tancent_vap:
     path: ../
 
   cupertino_icons: ^1.0.8

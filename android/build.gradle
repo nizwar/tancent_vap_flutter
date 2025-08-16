@@ -67,4 +67,5 @@ android {
 
 dependencies { 
     implementation("io.github.tencent:vap:2.0.28")
+    implementation 'com.google.android.gms:play-services-basement:18.7.1'
 }

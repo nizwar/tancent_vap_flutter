@@ -3,14 +3,14 @@ PODS:
   - integration_test (0.0.1):
     - Flutter
   - QGVAPlayer (1.0.19)
-  - vap (0.0.1):
+  - tancent_vap (0.0.1):
     - Flutter
     - QGVAPlayer (= 1.0.19)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
-  - vap (from `.symlinks/plugins/vap/ios`)
+  - tancent_vap (from `.symlinks/plugins/tancent_vap/ios`)
 
 SPEC REPOS:
   trunk:
@@ -21,14 +21,14 @@ EXTERNAL SOURCES:
     :path: Flutter
   integration_test:
     :path: ".symlinks/plugins/integration_test/ios"
-  vap:
-    :path: ".symlinks/plugins/vap/ios"
+  tancent_vap:
+    :path: ".symlinks/plugins/tancent_vap/ios"
 
 SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   QGVAPlayer: a0bca68c9bd6f1c8de5ac2d10ddf98be6038cce9
-  vap: fdcb9c3730839888aa71044b7987427460148c77
+  tancent_vap: 4917210cc7e916023fd112655170d8e3d074f482
 
 PODFILE CHECKSUM: 4305caec6b40dde0ae97be1573c53de1882a07e5
 

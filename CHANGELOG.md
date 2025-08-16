@@ -1,3 +1,5 @@
-## 0.0.1
+## 1.0.0+1
 
-* TODO: Describe initial release.
+* VAPView with Android & iOS Support
+* VAPView dynamic content support
+* Can play with multiple widget

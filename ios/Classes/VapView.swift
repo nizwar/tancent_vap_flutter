@@ -100,6 +100,8 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
+            clearVapTagContents()
+            
             // Stop VAP playback and clean up resources
             self.vapView?.stopHWDMP4()
             
@@ -201,6 +203,10 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
             
         case "getAllVapTagContents":
             result(vapTagContents)
+            
+        case "clearVapTagContents":
+            clearVapTagContents()
+            result(nil)
             
         default:
             result(FlutterMethodNotImplemented)

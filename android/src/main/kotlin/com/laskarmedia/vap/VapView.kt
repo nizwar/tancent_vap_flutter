@@ -215,6 +215,7 @@ class VapView(
     private fun reset() {
         animView.stopPlay()
         frameLayout.removeAllViews()
+        clearVapTagContents()
     }
 
     override fun dispose() {
@@ -286,6 +287,11 @@ class VapView(
 
             "getAllVapTagContents" -> {
                 result.success(vapTagContents.toMap())
+            }
+
+            "clearVapTagContents"->{
+                clearVapTagContents()
+                result.success(null)
             }
 
             else -> result.notImplemented()
