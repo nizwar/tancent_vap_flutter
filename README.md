@@ -9,14 +9,7 @@ A Flutter plugin that integrates Tencent's Video Animation Player (VAP) technolo
 - **Dynamic Content**: Text and image injection (Base64, files, assets, URLs)
 - **Event System**: Complete lifecycle and error handling callbacks
 - **Multiple Instances**: Run concurrent animations with independent widgets
-
-## Installation
-
-```yaml
-dependencies:
-    tancent_vap: ^1.0.0
-```
-
+ 
 ### Platform Setup
 
 **Android** (`android/app/build.gradle`):
