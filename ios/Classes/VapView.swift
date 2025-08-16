@@ -9,6 +9,7 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
     private var vapView: QGVAPWrapView?
     private var repeatCount: Int = 0
     private var playResult: FlutterResult?
+    private var vapTagContents: [String: [String: Any]] = [:]
     
     init(
         context: CGRect,
@@ -48,6 +49,7 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
         
         // Configure background color to prevent visual glitches
         vapView?.backgroundColor = UIColor.clear
+        
         _view.backgroundColor = UIColor.clear
         
         channel.setMethodCallHandler(onMethodCall)
@@ -78,6 +80,14 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
         }
         if let mute = params?["mute"] as? Bool {
             setMute(mute)
+        }
+        
+        // Store tag contents as Maps
+        if let tagContents = params?["vapTagContents"] as? [String: [String: Any]] {
+            for (tag, content) in tagContents {
+                vapTagContents[tag] = content
+                NSLog("Stored tag content for tag: \(tag), contentType: \(content["contentType"] ?? "unknown")")
+            }
         } 
     }
     
@@ -166,6 +176,32 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
             }
             result(nil)
             
+        case "setVapTagContent":
+            if let args = call.arguments as? [String: Any],
+               let tag = args["tag"] as? String,
+               let contentMap = args["content"] as? [String: Any] {
+                setVapTagContent(tag: tag, contentMap: contentMap)
+            }
+            result(nil)
+            
+        case "setVapTagContents":
+            if let args = call.arguments as? [String: Any],
+               let contents = args["contents"] as? [String: [String: Any]] {
+                setVapTagContents(contents)
+            }
+            result(nil)
+            
+        case "getVapTagContent":
+            if let args = call.arguments as? [String: Any],
+               let tag = args["tag"] as? String {
+                result(getVapTagContent(tag: tag))
+            } else {
+                result(nil)
+            }
+            
+        case "getAllVapTagContents":
+            result(vapTagContents)
+            
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -247,6 +283,27 @@ public class VapFlutterView: NSObject, FlutterPlatformView {
             vapView?.contentMode = .aspectFit
             break
         }
+    }
+    
+    // MARK: - VAP Tag Content Management
+    private func setVapTagContent(tag: String, contentMap: [String: Any]) {
+        vapTagContents[tag] = contentMap
+    }
+    
+    private func setVapTagContents(_ contents: [String: [String: Any]]) {
+        vapTagContents.merge(contents) { (_, new) in new }
+    }
+    
+    private func getVapTagContent(tag: String) -> String? {
+        guard let contentMap = vapTagContents[tag],
+              let contentValue = contentMap["contentValue"] as? String else {
+            return nil
+        }
+        return contentValue
+    }
+    
+    private func clearVapTagContents() {
+        vapTagContents.removeAll()
     }
     
     // MARK: - Event Handling
@@ -341,7 +398,7 @@ extension VapFlutterView: VAPWrapViewDelegate {
         sendVideoCompleteEvent()
     }
     
-     func viewDidFailPlayMP4(_ error: NSError) {
+    func viewDidFailPlayMP4(_ error: NSError) {
         // Handle specific VideoToolbox errors
         var errorMsg = error.localizedDescription
         var errorCode = error.code
@@ -383,11 +440,248 @@ extension VapFlutterView: VAPWrapViewDelegate {
             playResult = nil
         }
     }
-    
-    // MARK: - Resource Management Delegate Methods
-    
-    func contentForVapTag(_ tag: String) -> String? {
-        return nil
+    //       MARK: - Resource Management Delegate Methods
+    public func vapWrapview_content(forVapTag tag: String, resource info: QGVAPSourceInfo) -> String {
+        guard let contentMap = vapTagContents[tag],
+              let contentValue = contentMap["contentValue"] as? String else {
+            return tag
+        }
+        
+        // If the resource type is text, return the content value
+        if info.type == .text || info.type == .textStr {
+            return contentValue
+        }
+        
+        // For other resource types (images, etc.), return the tag
+        return tag
     }
-     
+    
+    public func vapWrapView_loadVapImage(withURL urlStr: String, context: [AnyHashable : Any], completion completionBlock: @escaping VAPImageCompletionBlock) {
+        print("URLNYA : " + urlStr + " INI VAPIMAGECONTENT : " + String(describing: vapTagContents) + "\n")
+        // First check if we have content for this tag in vapTagContents
+        if let contentMap = vapTagContents[urlStr],
+           let contentValue = contentMap["contentValue"] as? String,
+           let contentType = contentMap["contentType"] as? String {
+            handleVapTagContent(content: contentValue, contentType: contentType, tag: urlStr, completion: completionBlock)
+            return
+        }
+        
+        // Fallback to original URL loading if no tag content is found
+        guard let url = URL(string: urlStr) else {
+            completionBlock(nil, NSError(domain: "VAPImageLoader", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL and no tag content found"]), urlStr)
+            return
+        }
+        
+        // Simple URLSession implementation - replace with your preferred image loading library
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completionBlock(nil, error as NSError, urlStr)
+                    return
+                }
+                
+                guard let data = data, let image = UIImage(data: data) else {
+                    completionBlock(nil, NSError(domain: "VAPImageLoader", code: -2, userInfo: [NSLocalizedDescriptionKey: "Failed to create image from data"]), urlStr)
+                    return
+                }
+                
+                completionBlock(image, nil, urlStr)
+            }
+        }.resume()
+    }
+    
+    func loadVapImageWithURL(_ urlStr: String, context: [String: Any], completion: @escaping VAPImageCompletionBlock) {
+        // First check if we have content for this tag in vapTagContents
+        if let contentMap = vapTagContents[urlStr],
+           let contentValue = contentMap["contentValue"] as? String,
+           let contentType = contentMap["contentType"] as? String {
+            handleVapTagContent(content: contentValue, contentType: contentType, tag: urlStr, completion: completion)
+            return
+        }
+        
+        // Fallback to original URL loading if no tag content is found
+        guard let url = URL(string: urlStr) else {
+            completion(nil, NSError(domain: "VAPImageLoader", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL and no tag content found"]), urlStr)
+            return
+        }
+        
+        // Simple URLSession implementation - replace with your preferred image loading library
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(nil, error as NSError, urlStr)
+                    return
+                }
+                
+                guard let data = data, let image = UIImage(data: data) else {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -2, userInfo: [NSLocalizedDescriptionKey: "Failed to create image from data"]), urlStr)
+                    return
+                }
+                
+                completion(image, nil, urlStr)
+            }
+        }.resume()
+    }
+    
+    private func handleVapTagContent(content: String, contentType: String, tag: String, completion: @escaping VAPImageCompletionBlock) {
+        NSLog("Processing tag: \(tag), contentType: \(contentType)")
+        
+        switch contentType {
+        case "text":
+            handleTextContent(content: content, tag: tag, completion: completion)
+        case "image_base64":
+            handleImageBase64Content(content: content, tag: tag, completion: completion)
+        case "image_file":
+            handleImageFileContent(content: content, tag: tag, completion: completion)
+        case "image_asset":
+            handleImageAssetContent(content: content, tag: tag, completion: completion)
+        case "image_url":
+            handleImageUrlContent(content: content, tag: tag, completion: completion)
+        default:
+            NSLog("Unsupported content type: \(contentType) for tag: \(tag)")
+            completion(nil, NSError(domain: "VAPImageLoader", code: -4, userInfo: [NSLocalizedDescriptionKey: "Unsupported content type: \(contentType)"]), tag)
+        }
+    }
+    
+    // MARK: - Content Type Handlers
+    
+    private func handleTextContent(content: String, tag: String, completion: @escaping VAPImageCompletionBlock) {
+        // Text content is not handled by image loading, skip
+        NSLog("Text content type for tag: \(tag), skipping image loading")
+        completion(nil, nil, tag)
+    }
+    
+    private func handleImageBase64Content(content: String, tag: String, completion: @escaping VAPImageCompletionBlock) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var base64String = content
+            
+            // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+            if content.hasPrefix("data:image/") {
+                if let commaRange = content.range(of: ",") {
+                    base64String = String(content[commaRange.upperBound...])
+                }
+            } else if content.hasPrefix("base64:") {
+                base64String = String(content.dropFirst(7)) // Remove "base64:" prefix
+            }
+            
+            guard let imageData = Data(base64Encoded: base64String),
+                  let image = UIImage(data: imageData) else {
+                DispatchQueue.main.async {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -3, userInfo: [NSLocalizedDescriptionKey: "Failed to decode base64 image for tag: \(tag)"]), tag)
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                NSLog("Successfully decoded base64 image for tag: \(tag)")
+                completion(image, nil, tag)
+            }
+        }
+    }
+    
+    private func handleImageFileContent(content: String, tag: String, completion: @escaping VAPImageCompletionBlock) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var fullPath = content
+            
+            // Handle different file path types
+            if content.hasPrefix("/") {
+                // Absolute path
+                fullPath = content
+            } else if content.hasPrefix("file://") {
+                // File URL
+                fullPath = String(content.dropFirst(7))
+            } else {
+                // Relative path - check in Documents directory
+                let documentsPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
+                let documentFilePath = documentsPath + "/" + content
+                
+                if FileManager.default.fileExists(atPath: documentFilePath) {
+                    fullPath = documentFilePath
+                } else {
+                    // Use as-is and let it fail if invalid
+                    fullPath = content
+                }
+            }
+            
+            guard FileManager.default.fileExists(atPath: fullPath) else {
+                DispatchQueue.main.async {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -4, userInfo: [NSLocalizedDescriptionKey: "File not found: \(fullPath) for tag: \(tag)"]), tag)
+                }
+                return
+            }
+            
+            guard let image = UIImage(contentsOfFile: fullPath) else {
+                DispatchQueue.main.async {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -5, userInfo: [NSLocalizedDescriptionKey: "Failed to load image from file: \(fullPath) for tag: \(tag)"]), tag)
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                NSLog("Successfully loaded file image for tag: \(tag) from: \(fullPath)")
+                completion(image, nil, tag)
+            }
+        }
+    }
+    
+    private func handleImageAssetContent(content: String, tag: String, completion: @escaping VAPImageCompletionBlock) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Try as Flutter asset first
+            let assetKey = FlutterDartProject.lookupKey(forAsset: content)
+            var fullPath: String?
+            
+            if let assetPath = Bundle.main.path(forResource: assetKey, ofType: nil) {
+                fullPath = assetPath
+            } else if let bundlePath = Bundle.main.path(forResource: content, ofType: nil) {
+                // Try as direct bundle resource
+                fullPath = bundlePath
+            }
+            
+            guard let validPath = fullPath, FileManager.default.fileExists(atPath: validPath) else {
+                DispatchQueue.main.async {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -4, userInfo: [NSLocalizedDescriptionKey: "Asset not found: \(content) for tag: \(tag)"]), tag)
+                }
+                return
+            }
+            
+            guard let image = UIImage(contentsOfFile: validPath) else {
+                DispatchQueue.main.async {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -5, userInfo: [NSLocalizedDescriptionKey: "Failed to load asset image: \(content) for tag: \(tag)"]), tag)
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                NSLog("Successfully loaded asset image for tag: \(tag) from: \(validPath)")
+                completion(image, nil, tag)
+            }
+        }
+    }
+    
+    private func handleImageUrlContent(content: String, tag: String, completion: @escaping VAPImageCompletionBlock) {
+        guard let url = URL(string: content) else {
+            completion(nil, NSError(domain: "VAPImageLoader", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL: \(content) for tag: \(tag)"]), tag)
+            return
+        }
+        
+        NSLog("Loading image from URL: \(content) for tag: \(tag)")
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    NSLog("Failed to load image from URL: \(content) for tag: \(tag), error: \(error.localizedDescription)")
+                    completion(nil, error as NSError, tag)
+                    return
+                }
+                
+                guard let data = data, let image = UIImage(data: data) else {
+                    completion(nil, NSError(domain: "VAPImageLoader", code: -2, userInfo: [NSLocalizedDescriptionKey: "Failed to create image from URL data: \(content) for tag: \(tag)"]), tag)
+                    return
+                }
+                
+                NSLog("Successfully loaded image from URL: \(content) for tag: \(tag)")
+                completion(image, nil, tag)
+            }
+        }.resume()
+    }
 }
