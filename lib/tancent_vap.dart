@@ -20,6 +20,7 @@
 ///   },
 /// )
 /// ```
+library;
 
 export 'widgets/vap_view.dart';
 export 'utils/anim_configs.dart';
