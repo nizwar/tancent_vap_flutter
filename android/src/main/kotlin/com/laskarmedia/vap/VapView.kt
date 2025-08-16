@@ -45,6 +45,7 @@ class VapView(
     private val animView = AnimView(context)
     private val channel = MethodChannel(messenger, "vap_view_$id")
     private var playResult: MethodChannel.Result? = null
+    private val vapTagContents = mutableMapOf<String, String>()
 
     init {
         // Set scaleType from params
@@ -63,6 +64,44 @@ class VapView(
         (params?.get("assetName") as? String)?.let { playAsset(it, context, null) }
         (params?.get("loop") as? Int)?.let { animView.setLoop(it) }
         (params?.get("mute") as? Boolean)?.let { animView.setMute(it) }
+        
+        // Set initial VAP tag contents from params
+        (params?.get("vapTagContents") as? Map<String, String>)?.let { contents ->
+            vapTagContents.putAll(contents)
+        }
+        
+        // Set the fetch resource callback to provide VAP tag contents
+        animView.setFetchResource(object : IFetchResource {
+            override fun fetchImage(resource: Resource, result: IFetchResource.Result) {
+                val content = vapTagContents[resource.tag]
+                if (content != null && content.isNotEmpty()) {
+                    // For image resources, the content should be a file path or URL
+                    // This is a simplified implementation - in a real app you might
+                    // need to handle URLs, base64 images, etc.
+                    try {
+                        val bitmap = android.graphics.BitmapFactory.decodeFile(content)
+                        if (bitmap != null) {
+                            result.onSuccess(resource, bitmap)
+                        } else {
+                            result.onFailure(resource, RuntimeException("Failed to decode image: $content"))
+                        }
+                    } catch (e: Exception) {
+                        result.onFailure(resource, e)
+                    }
+                } else {
+                    result.onFailure(resource, RuntimeException("No content found for tag: ${resource.tag}"))
+                }
+            }
+
+            override fun fetchText(resource: Resource, result: IFetchResource.Result) {
+                val content = vapTagContents[resource.tag]
+                if (content != null) {
+                    result.onSuccess(resource, content)
+                } else {
+                    result.onFailure(resource, RuntimeException("No content found for tag: ${resource.tag}"))
+                }
+            }
+        })
         animView.setAnimListener(object : IAnimListener {
             override fun onVideoConfigReady(config: AnimConfig): Boolean {
                 GlobalScope.launch(Dispatchers.Main) {
@@ -219,6 +258,33 @@ class VapView(
                 result.success(null)
             }
 
+            "setVapTagContent" -> {
+                val tag = call.argument<String>("tag")
+                val content = call.argument<String>("content")
+                if (tag != null && content != null) {
+                    setVapTagContent(tag, content)
+                }
+                result.success(null)
+            }
+
+            "setVapTagContents" -> {
+                val contents = call.argument<Map<String, String>>("contents")
+                if (contents != null) {
+                    setVapTagContents(contents)
+                }
+                result.success(null)
+            }
+
+            "getVapTagContent" -> {
+                val tag = call.argument<String>("tag")
+                val content = if (tag != null) getVapTagContent(tag) else null
+                result.success(content)
+            }
+
+            "getAllVapTagContents" -> {
+                result.success(vapTagContents.toMap())
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -244,5 +310,22 @@ class VapView(
             "fitXY" -> animView.setScaleType(ScaleType.FIT_XY)
             else -> animView.setScaleType(ScaleType.FIT_CENTER)
         }
+    }
+
+    // VAP Tag Content Management
+    private fun setVapTagContent(tag: String, content: String) {
+        vapTagContents[tag] = content
+    }
+
+    private fun setVapTagContents(contents: Map<String, String>) {
+        vapTagContents.putAll(contents)
+    }
+
+    private fun getVapTagContent(tag: String): String? {
+        return vapTagContents[tag]
+    }
+
+    private fun clearVapTagContents() {
+        vapTagContents.clear()
     }
 }

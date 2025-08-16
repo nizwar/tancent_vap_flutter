@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:vap/utils/constant.dart';
+import 'package:tancent_vap/utils/constant.dart';
 
 import '../utils/anim_configs.dart';
 
@@ -14,15 +14,17 @@ class VapView extends StatefulWidget {
   final ScaleType scaleType;
   final int repeat;
   final bool mute;
+  final Map<String, String>? vapTagContents;
   final Function(VapController)? onViewCreated;
 
   /// Creates a VapView widget.
   /// - `scaleType` specifies how the video should be scaled within the view.
   /// - `repeat` specifies the number of times the video should repeat (0 for no repeat, -1 for infinite loop).
   /// - `mute` specifies whether the video should be muted during playback.
+  /// - `vapTagContents` specifies initial content for VAP tags (optional).
   /// - `onViewCreated` is a callback that provides the VapController once the view is created,
   /// allowing you to control video playback and listen to events.
-  const VapView({super.key, this.scaleType = ScaleType.fitCenter, this.repeat = 0, this.mute = false, this.onViewCreated});
+  const VapView({super.key, this.scaleType = ScaleType.fitCenter, this.repeat = 0, this.mute = false, this.vapTagContents, this.onViewCreated});
 
   @override
   State<VapView> createState() => _VapViewState();
@@ -33,20 +35,17 @@ class _VapViewState extends State<VapView> {
 
   @override
   Widget build(BuildContext context) {
+    final creationParams = <String, dynamic>{'scaleType': widget.scaleType.key, 'loop': widget.repeat, 'mute': widget.mute};
+
+    // Add VAP tag contents to creation params if provided
+    if (widget.vapTagContents != null && widget.vapTagContents!.isNotEmpty) {
+      creationParams['vapTagContents'] = widget.vapTagContents!;
+    }
+
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return UiKitView(
-        viewType: 'vap_view',
-        creationParams: {'scaleType': widget.scaleType.key, 'loop': widget.repeat, 'mute': widget.mute},
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _onPlatformViewCreated,
-      );
+      return UiKitView(viewType: 'vap_view', creationParams: creationParams, creationParamsCodec: const StandardMessageCodec(), onPlatformViewCreated: _onPlatformViewCreated);
     } else {
-      return AndroidView(
-        viewType: 'vap_view',
-        creationParams: {'scaleType': widget.scaleType.key, 'loop': widget.repeat, 'mute': widget.mute},
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _onPlatformViewCreated,
-      );
+      return AndroidView(viewType: 'vap_view', creationParams: creationParams, creationParamsCodec: const StandardMessageCodec(), onPlatformViewCreated: _onPlatformViewCreated);
     }
   }
 
@@ -186,6 +185,47 @@ class VapController {
   /// Set the scale type for the video playback.
   Future<void> setScaleType(String scaleType) async {
     await __channel.invokeMethod('setScaleType', {'scaleType': scaleType});
+  }
+
+  /// Set content for a specific VAP tag.
+  /// This allows you to provide dynamic content (like text or image URLs) that will be
+  /// rendered in the VAP animation at runtime.
+  ///
+  /// Example:
+  /// ```dart
+  /// await controller.setVapTagContent('username', 'John Doe');
+  /// await controller.setVapTagContent('avatar', 'https://example.com/avatar.jpg');
+  /// ```
+  Future<void> setVapTagContent(String tag, String content) async {
+    await __channel.invokeMethod('setVapTagContent', {'tag': tag, 'content': content});
+  }
+
+  /// Set multiple VAP tag contents at once.
+  /// This is more efficient than calling setVapTagContent multiple times.
+  ///
+  /// Example:
+  /// ```dart
+  /// await controller.setVapTagContents({
+  ///   'username': 'John Doe',
+  ///   'avatar': 'https://example.com/avatar.jpg',
+  ///   'message': 'Hello World!'
+  /// });
+  /// ```
+  Future<void> setVapTagContents(Map<String, String> contents) async {
+    await __channel.invokeMethod('setVapTagContents', {'contents': contents});
+  }
+
+  /// Get content for a specific VAP tag.
+  /// Returns null if the tag is not set.
+  Future<String?> getVapTagContent(String tag) async {
+    return await __channel.invokeMethod('getVapTagContent', {'tag': tag});
+  }
+
+  /// Get all VAP tag contents.
+  /// Returns a map of all currently set tag contents.
+  Future<Map<String, String>> getAllVapTagContents() async {
+    final result = await __channel.invokeMethod('getAllVapTagContents');
+    return Map<String, String>.from(result ?? {});
   }
 
   /// Dispose the controller and release resources.
