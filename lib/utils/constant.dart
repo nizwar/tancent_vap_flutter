@@ -61,7 +61,8 @@ enum VideoOrientation {
   /// Parameters:
   /// - [value]: Integer value representing the orientation (0=none, 1=portrait, 2=landscape)
   static VideoOrientation fromValue(int value) {
-    return VideoOrientation.values.firstWhere((e) => e.value == value, orElse: () => none);
+    return VideoOrientation.values
+        .firstWhere((e) => e.value == value, orElse: () => none);
   }
 }
 
@@ -163,7 +164,8 @@ abstract class VAPContent {
       case 'text':
         return TextContent(contentValue);
       case 'image':
-        if (contentValue.startsWith('http://') || contentValue.startsWith('https://')) {
+        if (contentValue.startsWith('http://') ||
+            contentValue.startsWith('https://')) {
           return ImageURLContent(contentValue);
         } else if (contentValue.startsWith('data:image/')) {
           return ImageBase64Content(contentValue);

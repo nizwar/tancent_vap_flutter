@@ -37,7 +37,8 @@ class _ApplicationState extends State<Application> {
                   ),
                   ElevatedButton(
                     onPressed: () {
-                      controller.setVapTagContent("[sTxt1]", TextContent(textController.text));
+                      controller.setVapTagContent(
+                          "[sTxt1]", TextContent(textController.text));
                       controller.playAsset("assets/vapx.mp4");
                     },
                     child: Text("Play Animation"),

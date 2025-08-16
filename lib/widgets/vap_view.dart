@@ -82,7 +82,13 @@ class VapView extends StatefulWidget {
   /// - [mute]: Whether to mute audio (defaults to false)
   /// - [vapTagContents]: Initial content for VAP tags (optional)
   /// - [onViewCreated]: Callback to receive the controller (optional)
-  const VapView({super.key, this.scaleType = ScaleType.fitCenter, this.repeat = 0, this.mute = false, this.vapTagContents, this.onViewCreated});
+  const VapView(
+      {super.key,
+      this.scaleType = ScaleType.fitCenter,
+      this.repeat = 0,
+      this.mute = false,
+      this.vapTagContents,
+      this.onViewCreated});
 
   @override
   State<VapView> createState() => _VapViewState();
@@ -100,17 +106,30 @@ class _VapViewState extends State<VapView> {
 
   @override
   Widget build(BuildContext context) {
-    final creationParams = <String, dynamic>{'scaleType': widget.scaleType.key, 'loop': widget.repeat, 'mute': widget.mute};
+    final creationParams = <String, dynamic>{
+      'scaleType': widget.scaleType.key,
+      'loop': widget.repeat,
+      'mute': widget.mute
+    };
 
     // Add VAP tag contents to creation params if provided
     if (widget.vapTagContents != null && widget.vapTagContents!.isNotEmpty) {
-      creationParams['vapTagContents'] = widget.vapTagContents!.map((key, value) => MapEntry(key, value.toMap));
+      creationParams['vapTagContents'] = widget.vapTagContents!
+          .map((key, value) => MapEntry(key, value.toMap));
     }
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return UiKitView(viewType: 'vap_view', creationParams: creationParams, creationParamsCodec: const StandardMessageCodec(), onPlatformViewCreated: _onPlatformViewCreated);
+      return UiKitView(
+          viewType: 'vap_view',
+          creationParams: creationParams,
+          creationParamsCodec: const StandardMessageCodec(),
+          onPlatformViewCreated: _onPlatformViewCreated);
     } else {
-      return AndroidView(viewType: 'vap_view', creationParams: creationParams, creationParamsCodec: const StandardMessageCodec(), onPlatformViewCreated: _onPlatformViewCreated);
+      return AndroidView(
+          viewType: 'vap_view',
+          creationParams: creationParams,
+          creationParamsCodec: const StandardMessageCodec(),
+          onPlatformViewCreated: _onPlatformViewCreated);
     }
   }
 
@@ -193,7 +212,8 @@ class VapController {
   /// Sets up the method call handler for receiving events from native code.
   void _setChannel(MethodChannel channel) {
     _channel = channel;
-    _channel?.setMethodCallHandler((MethodCall call) => _handleNativeEvent(call));
+    _channel
+        ?.setMethodCallHandler((MethodCall call) => _handleNativeEvent(call));
   }
 
   /// Sets event listeners for various animation events.
@@ -266,7 +286,8 @@ class VapController {
           final args = call.arguments as Map<String, dynamic>;
           final frameIndex = args['frameIndex'] as int;
           final config = args['config'] as Map<String, dynamic>?;
-          _onVideoRender!(frameIndex, config != null ? VAPConfigs.fromMap(config) : null);
+          _onVideoRender!(
+              frameIndex, config != null ? VAPConfigs.fromMap(config) : null);
         }
         break;
       case 'onVideoStart':
@@ -396,7 +417,8 @@ class VapController {
     if (tag.isEmpty) {
       throw ArgumentError('Tag cannot be empty');
     }
-    await __channel.invokeMethod('setVapTagContent', {'tag': tag, 'content': content.toMap});
+    await __channel.invokeMethod(
+        'setVapTagContent', {'tag': tag, 'content': content.toMap});
   }
 
   /// Sets multiple VAP tag contents at once.
@@ -430,7 +452,8 @@ class VapController {
       }
     }
 
-    await __channel.invokeMethod('setVapTagContents', {'contents': contents.map((key, value) => MapEntry(key, value.toMap))});
+    await __channel.invokeMethod('setVapTagContents',
+        {'contents': contents.map((key, value) => MapEntry(key, value.toMap))});
   }
 
   /// Gets the content for a specific VAP tag.
@@ -452,7 +475,8 @@ class VapController {
     if (tag.isEmpty) {
       throw ArgumentError('Tag cannot be empty');
     }
-    return await __channel.invokeMethod('getVapTagContent', {'tag': tag}).then((result) {
+    return await __channel
+        .invokeMethod('getVapTagContent', {'tag': tag}).then((result) {
       if (result == null) return null;
       return VAPContent.fromMap(Map<String, dynamic>.from(result as Map));
     });
@@ -472,7 +496,8 @@ class VapController {
   /// ```
   Future<Map<String, VAPContent>> getAllVapTagContents() async {
     final result = await __channel.invokeMethod('getAllVapTagContents');
-    return Map<String, VAPContent>.from((result ?? {}) as Map).map((key, value) {
+    return Map<String, VAPContent>.from((result ?? {}) as Map)
+        .map((key, value) {
       return MapEntry(key, VAPContent.fromMap(value as Map<String, dynamic>));
     });
   }
