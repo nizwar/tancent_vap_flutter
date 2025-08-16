@@ -1,4 +1,4 @@
-# Tencent VAP Flutter
+# Tencent VAP - Flutter
 
 A Flutter plugin that integrates Tencent's Video Animation Player (VAP) technology for high-performance video animations with dynamic content replacement. Supports multiple simultaneous animations through individual VAPView widgets.
 
