@@ -1,4 +1,4 @@
-import 'package:vap/utils/anim_configs.dart';
+import 'package:tancent_vap/utils/anim_configs.dart';
 
 /// ScaleType for video scaling options
 /// This enum defines how the video should be scaled within its container.
@@ -58,3 +58,94 @@ typedef OnVideoConfigReady = void Function(VAPConfigs configs);
 
 /// Callback when the video starts playing
 typedef OnVideoStart = void Function();
+
+abstract class VAPContent {
+  String get contentType;
+  String get contentValue;
+
+  Map<String, dynamic> get toMap {
+    return {'contentType': contentType, 'contentValue': contentValue};
+  }
+
+  static VAPContent fromMap(Map<String, dynamic> value) {
+    final contentType = value['contentType'] as String;
+    final contentValue = value['contentValue'] as String;
+
+    switch (contentType) {
+      case 'text':
+        return TextContent(contentValue);
+      case 'image':
+        if (contentValue.startsWith('http://') || contentValue.startsWith('https://')) {
+          return ImageURLContent(contentValue);
+        } else if (contentValue.startsWith('data:image/')) {
+          return ImageBase64Content(contentValue);
+        } else if (contentValue.startsWith('assets/')) {
+          return ImageAssetContent(contentValue);
+        } else {
+          return ImageFileContent(contentValue);
+        }
+      default:
+        throw ArgumentError('Unknown content type: $contentType');
+    }
+  }
+}
+
+class TextContent extends VAPContent {
+  final String text;
+
+  TextContent(this.text);
+
+  @override
+  String get contentType => 'text';
+
+  @override
+  String get contentValue => text;
+}
+
+class ImageBase64Content extends VAPContent {
+  final String base64;
+
+  ImageBase64Content(this.base64);
+
+  @override
+  String get contentType => 'image_base64';
+
+  @override
+  String get contentValue => base64;
+}
+
+class ImageFileContent extends VAPContent {
+  final String filePath;
+
+  ImageFileContent(this.filePath);
+
+  @override
+  String get contentType => 'image_file';
+
+  @override
+  String get contentValue => filePath;
+}
+
+class ImageAssetContent extends VAPContent {
+  final String assetPath;
+
+  ImageAssetContent(this.assetPath);
+
+  @override
+  String get contentType => 'image_asset';
+
+  @override
+  String get contentValue => assetPath;
+}
+
+class ImageURLContent extends VAPContent {
+  final String url;
+
+  ImageURLContent(this.url);
+
+  @override
+  String get contentType => 'image_url';
+
+  @override
+  String get contentValue => url;
+}

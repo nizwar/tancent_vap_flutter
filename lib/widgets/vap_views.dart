@@ -14,7 +14,7 @@ class VapView extends StatefulWidget {
   final ScaleType scaleType;
   final int repeat;
   final bool mute;
-  final Map<String, String>? vapTagContents;
+  final Map<String, VAPContent>? vapTagContents;
   final Function(VapController)? onViewCreated;
 
   /// Creates a VapView widget.
@@ -34,12 +34,19 @@ class _VapViewState extends State<VapView> {
   final VapController _controller = VapController();
 
   @override
+  void dispose() {
+    // Dispose the controller when the widget is disposed
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final creationParams = <String, dynamic>{'scaleType': widget.scaleType.key, 'loop': widget.repeat, 'mute': widget.mute};
 
     // Add VAP tag contents to creation params if provided
     if (widget.vapTagContents != null && widget.vapTagContents!.isNotEmpty) {
-      creationParams['vapTagContents'] = widget.vapTagContents!;
+      creationParams['vapTagContents'] = widget.vapTagContents!.map((key, value) => MapEntry(key, value.toMap));
     }
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
@@ -127,9 +134,10 @@ class VapController {
     switch (call.method) {
       case 'onFailed':
         if (_onFailed != null) {
-          final code = call.arguments['errorCode'] as int;
-          final type = call.arguments['errorType'] as String;
-          final msg = call.arguments['errorMsg'] as String?;
+          final args = call.arguments as Map<String, dynamic>;
+          final code = args['errorCode'] as int;
+          final type = args['errorType'] as String;
+          final msg = args['errorMsg'] as String?;
           _onFailed!(code, type, msg);
         }
         break;
@@ -140,22 +148,30 @@ class VapController {
         _onVideoDestroy?.call();
         break;
       case 'onVideoRender':
-        final arguments = call.arguments;
-        _onVideoRender?.call(arguments['frameIndex'], VAPConfigs.fromMap(Map.from(arguments['config'])));
+        if (_onVideoRender != null) {
+          final args = call.arguments as Map<String, dynamic>;
+          final frameIndex = args['frameIndex'] as int;
+          final config = args['config'] as Map<String, dynamic>?;
+          _onVideoRender!(frameIndex, config != null ? VAPConfigs.fromMap(config) : null);
+        }
         break;
       case 'onVideoStart':
         _onVideoStart?.call();
         break;
       case 'onVideoConfigReady':
-        final arguments = call.arguments;
-        _onVideoConfigReady?.call(VAPConfigs.fromMap(Map.from(arguments['config'])));
+        if (_onVideoConfigReady != null) {
+          final args = Map<String, dynamic>.from(call.arguments as Map);
+          final config = Map<String, dynamic>.from(args['config'] as Map);
+          _onVideoConfigReady!(VAPConfigs.fromMap(config));
+        }
         break;
       default:
         throw UnimplementedError('Unhandled method: ${call.method}');
     }
   }
 
-  /// Play video from a file path or asset.
+  /// Play video from a file path.
+  /// The filePath should point to a valid VAP file on the device.
   Future<void> playFile(String filePath) async {
     await __channel.invokeMethod('playFile', {'filePath': filePath});
   }
@@ -173,6 +189,7 @@ class VapController {
   }
 
   /// Set the loop count for the video playback.
+  /// Use 0 for no repeat, -1 for infinite loop, or a positive number for specific repeat count.
   Future<void> setLoop(int loop) async {
     await __channel.invokeMethod('setLoop', {'loop': loop});
   }
@@ -183,6 +200,7 @@ class VapController {
   }
 
   /// Set the scale type for the video playback.
+  /// Available options: 'fitCenter', 'centerCrop', 'fitXY'
   Future<void> setScaleType(String scaleType) async {
     await __channel.invokeMethod('setScaleType', {'scaleType': scaleType});
   }
@@ -194,10 +212,13 @@ class VapController {
   /// Example:
   /// ```dart
   /// await controller.setVapTagContent('username', 'John Doe');
-  /// await controller.setVapTagContent('avatar', 'https://example.com/avatar.jpg');
+  /// await controller.setVapTagContent('avatar', '/path/to/avatar.jpg');
   /// ```
-  Future<void> setVapTagContent(String tag, String content) async {
-    await __channel.invokeMethod('setVapTagContent', {'tag': tag, 'content': content});
+  Future<void> setVapTagContent(String tag, VAPContent content) async {
+    if (tag.isEmpty) {
+      throw ArgumentError('Tag cannot be empty');
+    }
+    await __channel.invokeMethod('setVapTagContent', {'tag': tag, 'content': content.toMap});
   }
 
   /// Set multiple VAP tag contents at once.
@@ -207,26 +228,74 @@ class VapController {
   /// ```dart
   /// await controller.setVapTagContents({
   ///   'username': 'John Doe',
-  ///   'avatar': 'https://example.com/avatar.jpg',
+  ///   'avatar': '/path/to/avatar.jpg',
   ///   'message': 'Hello World!'
   /// });
   /// ```
-  Future<void> setVapTagContents(Map<String, String> contents) async {
-    await __channel.invokeMethod('setVapTagContents', {'contents': contents});
+  Future<void> setVapTagContents(Map<String, VAPContent> contents) async {
+    if (contents.isEmpty) {
+      return; // Nothing to set
+    }
+
+    // Validate that no tags are empty
+    for (final tag in contents.keys) {
+      if (tag.isEmpty) {
+        throw ArgumentError('Tag cannot be empty');
+      }
+    }
+
+    await __channel.invokeMethod('setVapTagContents', {'contents': contents.map((key, value) => MapEntry(key, value.toMap))});
   }
 
   /// Get content for a specific VAP tag.
   /// Returns null if the tag is not set.
-  Future<String?> getVapTagContent(String tag) async {
-    return await __channel.invokeMethod('getVapTagContent', {'tag': tag});
+  Future<VAPContent?> getVapTagContent(String tag) async {
+    if (tag.isEmpty) {
+      throw ArgumentError('Tag cannot be empty');
+    }
+    return await __channel.invokeMethod('getVapTagContent', {'tag': tag}).then((result) {
+      if (result == null) return null;
+      return VAPContent.fromMap(Map<String, dynamic>.from(result as Map));
+    });
   }
 
   /// Get all VAP tag contents.
   /// Returns a map of all currently set tag contents.
-  Future<Map<String, String>> getAllVapTagContents() async {
+  Future<Map<String, VAPContent>> getAllVapTagContents() async {
     final result = await __channel.invokeMethod('getAllVapTagContents');
-    return Map<String, String>.from(result ?? {});
+    return Map<String, VAPContent>.from((result ?? {}) as Map).map((key, value) {
+      return MapEntry(key, VAPContent.fromMap(value as Map<String, dynamic>));
+    });
   }
+
+  /// Clear all VAP tag contents.
+  /// This removes all previously set tag content mappings.
+  Future<void> clearVapTagContents() async {
+    await __channel.invokeMethod('setVapTagContents', {'contents': <String, String>{}});
+  }
+
+  /// Check if a specific VAP tag has content set.
+  Future<bool> hasVapTagContent(String tag) async {
+    if (tag.isEmpty) {
+      return false;
+    }
+    final content = await getVapTagContent(tag);
+    return content != null;
+  }
+
+  /// Remove content for a specific VAP tag.
+  Future<void> removeVapTagContent(String tag) async {
+    if (tag.isEmpty) {
+      throw ArgumentError('Tag cannot be empty');
+    }
+
+    final allContents = await getAllVapTagContents();
+    allContents.remove(tag);
+    await setVapTagContents(allContents);
+  }
+
+  /// Check if the controller is disposed.
+  bool get isDisposed => _channel == null;
 
   /// Dispose the controller and release resources.
   /// This method should be called when the controller is no longer needed.

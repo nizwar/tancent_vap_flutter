@@ -1,5 +1,5 @@
 import 'package:flutter/painting.dart';
-import 'package:vap/utils/constant.dart';
+import 'package:tancent_vap/utils/constant.dart';
 
 class VAPConfigs {
   final int width;
@@ -38,8 +38,18 @@ class VAPConfigs {
       videoWidth: json['videoWidth'] as int,
       isMix: json['isMix'] as bool,
       orien: VideoOrientation.fromValue(json['orien'] as int),
-      alphaPointRect: Rect.fromLTRB(json['alphaPointRect']["x"], json['alphaPointRect']["y"], json['alphaPointRect']["w"], json['alphaPointRect']["h"]),
-      rgbPointRect: Rect.fromLTRB(json['rgbPointRect']["x"], json['rgbPointRect']["y"], json['rgbPointRect']["w"], json['rgbPointRect']["h"]),
+      alphaPointRect: Rect.fromLTRB(
+        (json['alphaPointRect']["x"] as int).toDouble(),
+        (json['alphaPointRect']["y"] as int).toDouble(),
+        (json['alphaPointRect']["w"] as int).toDouble(),
+        (json['alphaPointRect']["h"] as int).toDouble(),
+      ),
+      rgbPointRect: Rect.fromLTRB(
+        (json['rgbPointRect']["x"] as int).toDouble(),
+        (json['rgbPointRect']["y"] as int).toDouble(),
+        (json['rgbPointRect']["w"] as int).toDouble(),
+        (json['rgbPointRect']["h"] as int).toDouble(),
+      ),
       version: json['version'] as int,
     );
   }
