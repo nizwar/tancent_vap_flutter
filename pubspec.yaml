@@ -1,7 +1,7 @@
 name: tancent_vap
 description: "Video Animation Player from Tencent for Flutter, supports both Android and iOS platforms."
 version: 1.0.0+1
-homepage:
+homepage: https://github.com/nizwar/tancent_vap_flutter.git
 
 environment:
   sdk: ^3.6.0
